@@ -4,74 +4,53 @@ import datetime
 import re
 import os
 import time
-from twitter import UserClient, BirdyException
+from twitter import UserClient
 import numpy as np
 from time import sleep
 import pandas as pd
-
-key = [
-    ["WXtT7Lq4MHHvmK8XPNn9QiY1Y", "bOWycGRKctXM9Ruu8PW9d5RPcoML9oHf7ejaDTitC2xKP0BcdD", "1682690833-dPp9i07U7KF6vIXsBQGRcRQdgMrnmsYmJow8dGI", "rUnNF8jpPVPafCwk95ePGEv2vIDq5cegdEu2FBaI8QUgq"],
-    ["qlc8OG6rjrQjE9ma67NBoa499", "rty8ljZoGw3RczIzuVaMk1YRyUehyVWL0OXuJMoCf9daElidXg", "312689218-daicXyON4HgquS5MxnWlNDnSSinsHee0SNRADY8B", "OWaXOFBHTYNeVowLDYrdmc1ocGTE9ysrGzoMlNxOuu2yO"],
-    ["Xn6kq5wHjt8JExlvqHDlWyFsf", "4nuYyqgtR0CjqIzigsuTplU9BudJFdBNI87OJRYzpAPHbk7lu4", "802615980-C5NL3A9zKCYS25Q9V4L7ksGkU424NAI6nnLf8Nzb", "Be18CvylrX9xBR1VK6vIZ3jnBNw4bm5JkoWyBobRwoCyb"],
-]
-
-client = UserClient(key[0][0], key[0][1], key[0][2], key[0][3])
-
-users = ['Tom_Slater_', 'IanDunt', 'georgeeaton', 'DavidLammy', 'ShippersUnbound', 'GuidoFawkes', 'OwenJones84', 'bbclaurak']
-
-# List preferences
-minSubscriber = 0
-maxMember = 300
-
-# User preferences
-minFollower = 5000
-minTweets = 500
+from twitter_credentials import TwitterCredentials
 
 
-def get_base_users_list():
-    userSubs = []
+class TwitterClient(object):
+    def __init__(self):
+        self._twitter_credentials = None
+        self._client = None
+        self._i = 0
 
-    keyInd = 1
-    client = UserClient(key[keyInd][0], key[keyInd][1], key[keyInd][2], key[keyInd][3])
+    def get_user_client(self):
+        self._twitter_credentials = TwitterCredentials(self._i % 4)
+        self._client = UserClient(self._twitter_credentials.CONSUMER_KEY, self._twitter_credentials.CONSUMER_SECRET,
+                                  self._twitter_credentials.ACCESS_TOKEN, self._twitter_credentials.ACCESS_TOKEN_SECRET)
+        self._i += 1
+        return self._client
+
+
+def get_base_users_list(twitter_client):
+    client = twitter_client.get_user_client()
+    user_subs = []
 
     for user in users:
         print(user)
         sub = []
 
-        while (True):
-            try:
-                response = client.api.lists.memberships.get(screen_name=user, count=250, cursor=-1)
-                break
-            except Exception as err:
-                print(err)
-                sleep(10)
-                keyInd = (keyInd + 1) % len(key)
-                client = UserClient(key[keyInd][0], key[keyInd][1], key[keyInd][2], key[keyInd][3])
-                # response = client.api.lists.memberships.get(screen_name=user, count=250, cursor=-1)
+        next_cursor = -1
 
-        ncur = response.data['next_cursor']
-        for s in response.data['lists']:
-            sub.append(s)
-
-        while (ncur != 0):
-            while (True):
+        while next_cursor != 0:
+            while True:
                 try:
-                    response = client.api.lists.memberships.get(screen_name=user, count=250, cursor=ncur)
+                    response = client.api.lists.memberships.get(screen_name=user, count=1, cursor=next_cursor)
                     break
                 except Exception as err:
                     print(err)
                     sleep(10)
-                    keyInd = (keyInd + 1) % len(key)
-                    client = UserClient(key[keyInd][0], key[keyInd][1], key[keyInd][2], key[keyInd][3])
-                    # response = client.api.lists.memberships.get(screen_name=user, count=250, cursor=ncur)
+                    client = twitter_client.get_user_client()
 
-            ncur = response.data['next_cursor']
-            for s in response.data['lists']:
-                sub.append(s)
+            next_cursor = response.data['next_cursor']
+            sub.extend(response.data['lists'])
 
-        userSubs.append(sub)
+        user_subs.append(sub)
 
-    return userSubs
+    return user_subs
 
 
 def get_specifications_of_userlists(userSubs):
@@ -352,3 +331,20 @@ def last_similars(similars2):
 
     return last_similars
 
+
+if __name__ == '__main__':
+
+    twitter_client = TwitterClient()
+
+    users = ['Tom_Slater_', 'IanDunt', 'georgeeaton', 'DavidLammy', 'ShippersUnbound', 'GuidoFawkes', 'OwenJones84',
+             'bbclaurak']
+
+    # List preferences
+    minSubscriber = 0
+    maxMember = 300
+
+    # User preferences
+    minFollower = 5000
+    minTweets = 500
+
+    get_base_users_list(twitter_client)
