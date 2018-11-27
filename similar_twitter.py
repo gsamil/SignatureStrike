@@ -4,25 +4,11 @@ import datetime
 import re
 import os
 import time
-from twitter import UserClient
+
 import numpy as np
 from time import sleep
 import pandas as pd
-from twitter_credentials import TwitterCredentials
-
-
-class TwitterClient(object):
-    def __init__(self):
-        self._twitter_credentials = None
-        self._client = None
-        self._i = 0
-
-    def get_user_client(self):
-        self._twitter_credentials = TwitterCredentials(self._i % 1)
-        self._client = UserClient(self._twitter_credentials.CONSUMER_KEY, self._twitter_credentials.CONSUMER_SECRET,
-                                  self._twitter_credentials.ACCESS_TOKEN, self._twitter_credentials.ACCESS_TOKEN_SECRET)
-        self._i += 1
-        return self._client
+from twitter_credentials import TwitterClient
 
 
 def get_base_users_list(twitter_client):
@@ -43,6 +29,7 @@ def get_base_users_list(twitter_client):
             while True:
                 try:
                     response = client.api.lists.memberships.get(screen_name=user, count=250, cursor=next_cursor)
+                    response2 = client.api.statuses.user_timeline.get(screen_name="realDonaldTrump", count=20, cursor=-1)
                     break
                 except Exception as err:
                     print(err)
@@ -139,37 +126,27 @@ def get_members_of_common_lists(mostCommons):
     similarUsers = []
 
     for li in mostCommons:
-        if(os.path.exists('{}/{}.json'.format(similarUsersDir, li[1]))):
+        if os.path.exists('{}/{}.json'.format(similarUsersDir, li[1])):
             continue
 
         print(li)
         sims = []
 
         next_cursor = -1
-        excep = False
-        while next_cursor != 0:
-            while True:
-                try:
-                    excep = False
-                    response = client.api.lists.members.get(list_id=li[2], count=1000, cursor=next_cursor)
-                    break
-                except Exception as err:
-                    print(err)
-                    sleep(15)
-                    client = twitter_client.get_user_client()
-                    excep = True
-                    break
 
-            if excep:
+        while next_cursor != 0:
+            try:
+                response = client.api.lists.members.get(list_id=li[2], count=1000, cursor=next_cursor)
+            except Exception as err:
+                print(err)
                 break
+
             next_cursor = response.data['next_cursor']
             sims.extend(response.data['users'])
 
-        if excep:
-            continue
-
-        with open('{}/{}.json'.format(similarUsersDir, li[1]), 'w') as outfile:
-            json.dump(sims, outfile)
+        if len(sims) is not 0:
+            with open('{}/{}.json'.format(similarUsersDir, li[1]), 'w') as outfile:
+                json.dump(sims, outfile)
 
         similarUsers.append(sims)
 
