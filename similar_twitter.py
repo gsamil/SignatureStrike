@@ -39,7 +39,9 @@ def get_base_users_list(twitter_client, user_subs = {}):
 
         while next_cursor != 0:
             response = lists_memberships_get(client, user, 250, next_cursor)
-            if len(response.data) is not 0:
+            if len(response.data) is 0:
+                break
+            else:
                 next_cursor = response.data['next_cursor']
                 sub.extend(response.data['lists'])
 
@@ -70,14 +72,13 @@ def get_specifications_of_userlists(userSubs):
         userLists[user] = ul
 
     write_json_to_file(userLists, os.path.join(data_folder, '2_user_lists.json'))
-    print(userLists[0][5])
 
     return userLists
 
 
 def find_common_lists(userLists):
 
-    userListsValues = userLists.values()
+    userListsValues = [v for k,v in userLists.items()]
 
     commonLists = list(userListsValues[0])
 
@@ -89,7 +90,7 @@ def find_common_lists(userLists):
 
     print("Number of common lists: " + str(len(commonLists)))
 
-    write_json_to_file(commonLists, "3_common_lists.json")
+    write_json_to_file(commonLists, os.path.join(data_folder, "3_common_lists.json"))
 
     return commonLists
 
@@ -117,13 +118,13 @@ def eliminate_common_lists(commonLists):
     print("Number of common lists after elimination: " + str(len(mostCommons)))
     print("Number of members in lists: " + str(totalMember))
 
-    write_json_to_file(mostCommons, "4_most_commons.json")
+    write_json_to_file(mostCommons, os.path.join(data_folder, "4_most_commons.json"))
 
     return mostCommons
 
 
 def lists_members_get(client, list_id, count, cursor):
-    for i in range(5):
+    for i in range(1):
         try:
             return client.api.lists.members.get(list_id=list_id, count=count, cursor=cursor)
         except Exception as err:
@@ -151,8 +152,9 @@ def get_members_of_common_lists(mostCommons, similarUsers = {}):
 
         while next_cursor != 0:
             response = lists_members_get(client, li[2], 1000, next_cursor)
-
-            if len(response.data) is not 0:
+            if len(response.data) is 0:
+                break
+            else:
                 next_cursor = response.data['next_cursor']
                 sims.extend(response.data['users'])
 
@@ -222,9 +224,10 @@ def eliminate_bad_users(similarUsers):
     badUsers = ['cnnbrk', 'nytimes', 'CNN', 'BBCBreaking', 'TheEconomist', 'BBCWorld', 'Reuters', 'FoxNews', 'TIME',
                 'WSJ', 'Forbes', 'ABC', 'HuffPost', 'washingtonpost']
 
-    for i in range(len(similarUsers)):
+    similarUsersValues = [v for k, v in similarUsers.items()]
+    for i in range(len(similarUsersValues)):
         bad = False
-        for su in similarUsers[i]:
+        for su in similarUsersValues[i]:
             if su['screen_name'] in badUsers:
                 bad = True
                 break
@@ -242,11 +245,11 @@ def eliminate_lists_with_company_acounts(goodLists, similarUsers, mostCommons):
     similarUsers2 = []
 
     totalMember = 0
-
+    similarUsersValues = [v for k, v in similarUsers.items()]
     for i in goodLists:
         if mostCommons[i][4] >= minSubscriber and mostCommons[i][5] < maxMember:
             totalMember = totalMember + mostCommons[i][5]
-            similarUsers2.append(similarUsers[i])
+            similarUsers2.append(similarUsersValues[i])
 
     df = pd.DataFrame(columns=('Name', 'Slug', 'ID', 'Fullname', 'Subscribers', 'Members'))
     pd.options.display.float_format = '{:,.0f}'.format
@@ -299,22 +302,11 @@ def get_last_similars(similars2):
 
     sortedSimilars2 = sorted(similars2, key=lambda x: x[2], reverse=True)
 
-    f = open("SimilarUsers.txt", 'w', encoding='utf-8')
-
-    f.write(users[0])
-    for u in users[1:]:
-        f.write("," + u)
-    f.write("\n")
-
     for s in sortedSimilars2:
         if s[2] < minFollower:
             break
         if s[6] > minTweets and s[2] > s[3]:
             lastSimilars.append(s)
-            f.write(','.join([str(i) for i in s]))
-            f.write("\n")
-
-    f.close()
 
     print("Number of similar users: " + str(len(lastSimilars)))
     print()
@@ -408,13 +400,15 @@ if __name__ == '__main__':
     minFollower = 5000
     minTweets = 500
 
-    user_subs = get_base_users_list(twitter_client)
+    # user_subs = get_base_users_list(twitter_client)
+    user_subs = load_json_from_file(os.path.join(data_folder, '1_user_subs.json'))
 
     user_lists = get_specifications_of_userlists(userSubs=user_subs)
     common_lists = find_common_lists(userLists=user_lists)
     most_commons = eliminate_common_lists(commonLists=common_lists)
 
-    similar_users = get_members_of_common_lists(mostCommons=most_commons)
+    # similar_users = get_members_of_common_lists(mostCommons=most_commons)
+    similar_users = load_json_from_file(os.path.join(data_folder, '5_similar_users.json'))
 
     similars = extract_important_information_of_users(similarUsers=similar_users)
     chosens = choose_not_humans(similars=similars)
