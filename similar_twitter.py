@@ -1,48 +1,52 @@
 import json
-import sys
-import datetime
-import re
 import os
-import time
-
-import numpy as np
 from time import sleep
 import pandas as pd
 from twitter_credentials import TwitterClient
 
 
-def get_base_users_list(twitter_client):
-    userSubsDir = './user_subs'
-    if not os.path.exists(userSubsDir):
-        os.mkdir(userSubsDir)
+class EmptyApiResponse:
+    def __init__(self):
+        self.data = {}
+
+
+def lists_memberships_get(client, screen_name, count, cursor):
+    for i in range(1):
+        try:
+            return client.api.lists.memberships.get(screen_name=screen_name, count=count, cursor=cursor)
+        except Exception as err:
+            print(err)
+            sleep(10)
+            client = twitter_client.get_user_client()
+
+    print("Error 5 times, moving to the next user.")
+    return EmptyApiResponse()
+
+
+def get_base_users_list(twitter_client, user_subs = {}):
 
     client = twitter_client.get_user_client()
-    user_subs = []
 
     for user in users:
+
+        if user in user_subs:
+            continue
+
         print(user)
         sub = []
 
         next_cursor = -1
 
         while next_cursor != 0:
-            while True:
-                try:
-                    response = client.api.lists.memberships.get(screen_name=user, count=250, cursor=next_cursor)
-                    response2 = client.api.statuses.user_timeline.get(screen_name="realDonaldTrump", count=20, cursor=-1)
-                    break
-                except Exception as err:
-                    print(err)
-                    sleep(10)
-                    client = twitter_client.get_user_client()
+            response = lists_memberships_get(client, user, 250, next_cursor)
+            if len(response.data) is not 0:
+                next_cursor = response.data['next_cursor']
+                sub.extend(response.data['lists'])
 
-            next_cursor = response.data['next_cursor']
-            sub.extend(response.data['lists'])
+        if len(sub) is not 0:
+            user_subs[user] = sub
 
-        with open('{}/{}.json'.format(userSubsDir, user), 'w') as outfile:
-            json.dump(sub, outfile)
-
-        user_subs.append(sub)
+    write_json_to_file(user_subs, os.path.join(data_folder, '1_user_subs.json'))
 
     return user_subs
 
@@ -55,37 +59,37 @@ def get_specifications_of_userlists(userSubs):
     # 4. "subscriber_count": 1
     # 5. "member_count": 46
 
-    userLists = []
+    userLists = {}
 
-    for userSub in userSubs:
+    for user, userSub in userSubs.items():
         ul = []
         for li in userSub:
             ul.append(
                 (li['name'], li['slug'], str(li['id']), li['full_name'], li['subscriber_count'], li['member_count']))
 
-        userLists.append(ul)
+        userLists[user] = ul
 
+    write_json_to_file(userLists, os.path.join(data_folder, '2_user_lists.json'))
     print(userLists[0][5])
 
     return userLists
 
 
 def find_common_lists(userLists):
-    # commonLists = []
 
-    # for li in userLists[0]:
-    #    if li in userLists[1]:
-    #        commonLists.append(li)
+    userListsValues = userLists.values()
 
-    commonLists = list(userLists[0])
+    commonLists = list(userListsValues[0])
 
     for cL in commonLists[:]:
-        for uL in userLists[1:]:
+        for uL in userListsValues[1:]:
             if cL not in uL:
                 commonLists.remove(cL)
                 break
 
     print("Number of common lists: " + str(len(commonLists)))
+
+    write_json_to_file(commonLists, "3_common_lists.json")
 
     return commonLists
 
@@ -113,20 +117,31 @@ def eliminate_common_lists(commonLists):
     print("Number of common lists after elimination: " + str(len(mostCommons)))
     print("Number of members in lists: " + str(totalMember))
 
+    write_json_to_file(mostCommons, "4_most_commons.json")
+
     return mostCommons
 
 
-def get_members_of_common_lists(mostCommons):
-    similarUsersDir = './similar_users'
-    if not os.path.exists(similarUsersDir):
-        os.mkdir(similarUsersDir)
+def lists_members_get(client, list_id, count, cursor):
+    for i in range(5):
+        try:
+            return client.api.lists.members.get(list_id=list_id, count=count, cursor=cursor)
+        except Exception as err:
+            print(err)
+            sleep(10)
+            client = twitter_client.get_user_client()
+
+    print("Error 5 times, moving to the next user.")
+    return EmptyApiResponse()
+
+
+def get_members_of_common_lists(mostCommons, similarUsers = {}):
 
     client = twitter_client.get_user_client()
 
-    similarUsers = []
-
     for li in mostCommons:
-        if os.path.exists('{}/{}.json'.format(similarUsersDir, li[1])):
+
+        if li[2] in similarUsers:
             continue
 
         print(li)
@@ -135,21 +150,16 @@ def get_members_of_common_lists(mostCommons):
         next_cursor = -1
 
         while next_cursor != 0:
-            try:
-                response = client.api.lists.members.get(list_id=li[2], count=1000, cursor=next_cursor)
-            except Exception as err:
-                print(err)
-                break
+            response = lists_members_get(client, li[2], 1000, next_cursor)
 
-            next_cursor = response.data['next_cursor']
-            sims.extend(response.data['users'])
+            if len(response.data) is not 0:
+                next_cursor = response.data['next_cursor']
+                sims.extend(response.data['users'])
 
         if len(sims) is not 0:
-            with open('{}/{}.json'.format(similarUsersDir, li[1]), 'w') as outfile:
-                json.dump(sims, outfile)
+            similarUsers[li[2]] = sims
 
-        similarUsers.append(sims)
-
+    write_json_to_file(similarUsers, os.path.join(data_folder, '5_similar_users.json'))
     return similarUsers
 
 
@@ -167,7 +177,7 @@ def extract_important_information_of_users(similarUsers):
 
     similars = []
     uNames = []
-    for sus in similarUsers:
+    for li, sus in similarUsers.items():
         for su in sus:
             if su['screen_name'] not in uNames:
                 uNames.append(su['screen_name'])
@@ -176,6 +186,8 @@ def extract_important_information_of_users(similarUsers):
                                  su['protected'], su['created_at']))
 
     print("Number of unique users: " + str(len(similars)))
+
+    write_json_to_file(similars, os.path.join(data_folder, '6_similars.json'))
 
     return similars
 
@@ -200,6 +212,8 @@ def choose_not_humans(similars):
     print(len(chosens))
     print(df)
 
+    write_json_to_file(chosens, os.path.join(data_folder, '7_chosens.json'))
+
     return chosens
 
 
@@ -218,6 +232,8 @@ def eliminate_bad_users(similarUsers):
             goodLists.append(i)
 
     print("Number of remaining lists after elimination: " + str(len(goodLists)))
+
+    write_json_to_file(goodLists, os.path.join(data_folder, '8_good_lists.json'))
 
     return goodLists
 
@@ -243,6 +259,8 @@ def eliminate_lists_with_company_acounts(goodLists, similarUsers, mostCommons):
     print()
     print("Number of common lists after elimination: " + str(len(similarUsers2)))
     print("Number of members in lists: " + str(totalMember))
+
+    write_json_to_file(similarUsers2, os.path.join(data_folder, '9_similar_users_2.json'))
 
     return similarUsers2
 
@@ -270,6 +288,8 @@ def get_remaining_similars(similarUsers2):
                                   su['protected'], su['created_at']))
 
     print("Number of unique users: " + str(len(similars2)))
+
+    write_json_to_file(similars2, os.path.join(data_folder, '10_similars_2.json'))
 
     return similars2
 
@@ -307,26 +327,67 @@ def get_last_similars(similars2):
 
     print(df)
 
+    write_json_to_file(lastSimilars, os.path.join(data_folder, '11_last_similars.json'))
+
     return lastSimilars
 
 
-def load_json_dir(folder_dir):
+def get_user_timelines(twitter_client, last_similars):
+    userSubsDir = './user_subs'
+    if not os.path.exists(userSubsDir):
+        os.mkdir(userSubsDir)
 
-    sub_files = os.listdir(folder_dir)
-    json_paths = [os.path.join(folder_dir, u) for u in sub_files]
-    res = []
+    client = twitter_client.get_user_client()
+    user_subs = []
 
-    for json_path in json_paths:
-        with open(json_path, 'r') as infile:
-            res.append(json.load(infile))
+    for user in users:
+        print(user)
+        sub = []
 
+        next_cursor = -1
+
+        while next_cursor != 0:
+            while True:
+                try:
+                    response = client.api.lists.memberships.get(screen_name=user, count=250, cursor=next_cursor)
+                    response2 = client.api.statuses.user_timeline.get(screen_name="realDonaldTrump", count=20, cursor=-1)
+                    break
+                except Exception as err:
+                    print(err)
+                    sleep(10)
+                    client = twitter_client.get_user_client()
+
+            next_cursor = response.data['next_cursor']
+            sub.extend(response.data['lists'])
+
+        with open('{}/{}.json'.format(userSubsDir, user), 'w') as outfile:
+            json.dump(sub, outfile)
+
+        user_subs.append(sub)
+
+    return user_subs
+
+
+def load_json_from_file(file_path):
+    with open(file_path, 'r') as infile:
+        res = json.load(infile)
     return res
+
+
+def write_json_to_file(content, file_path, indent=4):
+    with open(file_path, 'w', encoding="utf-8") as sw:
+        sw.write(json.dumps(content, indent=indent, sort_keys=False))
 
 
 def write_all_lines(file_path, lines, file_format="utf-8"):
     with open(file_path, 'w', encoding=file_format) as sw:
         for line in lines:
             sw.write("{}\n".format(line))
+
+
+def create_dir_if_not_exist(path):
+    if not os.path.exists(path):
+        os.mkdir(path)
 
 
 if __name__ == '__main__':
@@ -336,6 +397,9 @@ if __name__ == '__main__':
     users = ['Tom_Slater_', 'IanDunt', 'georgeeaton', 'DavidLammy', 'ShippersUnbound', 'GuidoFawkes', 'OwenJones84',
              'bbclaurak']
 
+    data_folder = "./politics"
+    create_dir_if_not_exist(data_folder)
+
     # List preferences
     minSubscriber = 0
     maxMember = 300
@@ -344,16 +408,14 @@ if __name__ == '__main__':
     minFollower = 5000
     minTweets = 500
 
-    # user_subs = get_base_users_list(twitter_client)
+    user_subs = get_base_users_list(twitter_client)
 
-    user_subs = load_json_dir("user_subs")
     user_lists = get_specifications_of_userlists(userSubs=user_subs)
     common_lists = find_common_lists(userLists=user_lists)
     most_commons = eliminate_common_lists(commonLists=common_lists)
 
-    # similar_users = get_members_of_common_lists(mostCommons=most_commons)
+    similar_users = get_members_of_common_lists(mostCommons=most_commons)
 
-    similar_users = load_json_dir("similar_users")
     similars = extract_important_information_of_users(similarUsers=similar_users)
     chosens = choose_not_humans(similars=similars)
     good_lists = eliminate_bad_users(similarUsers=similar_users)
