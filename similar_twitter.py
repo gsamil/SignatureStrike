@@ -11,15 +11,19 @@ class EmptyApiResponse:
 
 
 def lists_memberships_get(client, screen_name, count, cursor):
-    for i in range(1):
+    try_count = 1
+    for i in range(try_count):
         try:
-            return client.api.lists.memberships.get(screen_name=screen_name, count=count, cursor=cursor)
+            response = client.api.lists.memberships.get(screen_name=screen_name, count=count, cursor=cursor)
+            if response is None:
+                return EmptyApiResponse()
+            return response
         except Exception as err:
             print(err)
             sleep(10)
             client = twitter_client.get_user_client()
 
-    print("Error 5 times, moving to the next user.")
+    print("Error {} times, moving to the next user.".format(try_count))
     return EmptyApiResponse()
 
 
@@ -124,15 +128,19 @@ def eliminate_common_lists(commonLists):
 
 
 def lists_members_get(client, list_id, count, cursor):
-    for i in range(1):
+    try_count = 1
+    for i in range(try_count):
         try:
-            return client.api.lists.members.get(list_id=list_id, count=count, cursor=cursor)
+            response = client.api.lists.members.get(list_id=list_id, count=count, cursor=cursor)
+            if response is None:
+                return EmptyApiResponse()
+            return response
         except Exception as err:
             print(err)
             sleep(10)
             client = twitter_client.get_user_client()
 
-    print("Error 5 times, moving to the next user.")
+    print("Error {} times, moving to the next user.".format(try_count))
     return EmptyApiResponse()
 
 
@@ -386,10 +394,10 @@ if __name__ == '__main__':
 
     twitter_client = TwitterClient()
 
-    users = ['Tom_Slater_', 'IanDunt', 'georgeeaton', 'DavidLammy', 'ShippersUnbound', 'GuidoFawkes', 'OwenJones84',
-             'bbclaurak']
+    users = ['Tom_Slater_', 'IanDunt', 'georgeeaton', 'DavidLammy', 'ShippersUnbound', 'GuidoFawkes', 'OwenJones84', 'bbclaurak']
+    users = ['thegrugq', 'SwiftOnSecurity', 'pwnallthethings', 'josephfcox', 'mikko']
 
-    data_folder = "./politics"
+    data_folder = "./cyber_security"
     create_dir_if_not_exist(data_folder)
 
     # List preferences
@@ -407,8 +415,8 @@ if __name__ == '__main__':
     common_lists = find_common_lists(userLists=user_lists)
     most_commons = eliminate_common_lists(commonLists=common_lists)
 
-    # similar_users = get_members_of_common_lists(mostCommons=most_commons)
-    similar_users = load_json_from_file(os.path.join(data_folder, '5_similar_users.json'))
+    similar_users = get_members_of_common_lists(mostCommons=most_commons)
+    # similar_users = load_json_from_file(os.path.join(data_folder, '5_similar_users.json'))
 
     similars = extract_important_information_of_users(similarUsers=similar_users)
     chosens = choose_not_humans(similars=similars)
