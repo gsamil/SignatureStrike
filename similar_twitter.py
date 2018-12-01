@@ -1,36 +1,10 @@
 import json
 import os
 from time import sleep
-import pandas as pd
-from twitter_credentials import TwitterClient
+from twitter_api_client import TwitterClient
 
 
-class EmptyApiResponse:
-    def __init__(self):
-        self.data = {}
-
-
-def lists_memberships_get(client, screen_name, count, cursor):
-    try_count = 1
-    for i in range(try_count):
-        try:
-            response = client.api.lists.memberships.get(screen_name=screen_name, count=count, cursor=cursor)
-            if response is None:
-                return EmptyApiResponse()
-            return response
-        except Exception as err:
-            print(err)
-            sleep(10)
-            client = twitter_client.get_user_client()
-
-    print("Error {} times, moving to the next user.".format(try_count))
-    return EmptyApiResponse()
-
-
-def get_base_users_list(twitter_client, user_subs = {}):
-
-    client = twitter_client.get_user_client()
-
+def get_base_users_list(user_subs = {}):
     for user in users:
 
         if user in user_subs:
@@ -42,7 +16,7 @@ def get_base_users_list(twitter_client, user_subs = {}):
         next_cursor = -1
 
         while next_cursor != 0:
-            response = lists_memberships_get(client, user, 250, next_cursor)
+            response = twitter_client.lists_memberships_get(user, 250, next_cursor)
             if len(response.data) is 0:
                 break
             else:
@@ -111,14 +85,6 @@ def eliminate_common_lists(commonLists):
             totalMember = totalMember + li[5]
             mostCommons.append(li)
 
-    df = pd.DataFrame(columns=('Name', 'Slug', 'ID', 'Fullname', 'Subscribers', 'Members'))
-    pd.options.display.float_format = '{:,.0f}'.format
-    for i in range(len(mostCommons)):
-        df.loc[i] = mostCommons[i]
-
-    print(df)
-
-    print()
     print("Number of common lists after elimination: " + str(len(mostCommons)))
     print("Number of members in lists: " + str(totalMember))
 
@@ -127,26 +93,7 @@ def eliminate_common_lists(commonLists):
     return mostCommons
 
 
-def lists_members_get(client, list_id, count, cursor):
-    try_count = 1
-    for i in range(try_count):
-        try:
-            response = client.api.lists.members.get(list_id=list_id, count=count, cursor=cursor)
-            if response is None:
-                return EmptyApiResponse()
-            return response
-        except Exception as err:
-            print(err)
-            sleep(10)
-            client = twitter_client.get_user_client()
-
-    print("Error {} times, moving to the next user.".format(try_count))
-    return EmptyApiResponse()
-
-
 def get_members_of_common_lists(mostCommons, similarUsers = {}):
-
-    client = twitter_client.get_user_client()
 
     for li in mostCommons:
 
@@ -159,7 +106,7 @@ def get_members_of_common_lists(mostCommons, similarUsers = {}):
         next_cursor = -1
 
         while next_cursor != 0:
-            response = lists_members_get(client, li[2], 1000, next_cursor)
+            response = twitter_client.lists_members_get(li[2], 1000, next_cursor)
             if len(response.data) is 0:
                 break
             else:
@@ -213,15 +160,6 @@ def choose_not_humans(similars):
         if s[6] > minTweets and s[2] > s[3]:
             chosens.append(s)
 
-    df = pd.DataFrame(columns=(
-    'ID', 'Name', 'Followers', 'Friends', 'Favourites', 'Listed', 'Statuses', 'Verified', 'Protected', 'Created_at'))
-    pd.options.display.float_format = '{:,.0f}'.format
-    for i in range(20):
-        df.loc[i] = chosens[i]
-
-    print(len(chosens))
-    print(df)
-
     write_json_to_file(chosens, os.path.join(data_folder, '7_chosens.json'))
 
     return chosens
@@ -259,15 +197,6 @@ def eliminate_lists_with_company_acounts(goodLists, similarUsers, mostCommons):
             totalMember = totalMember + mostCommons[i][5]
             similarUsers2.append(similarUsersValues[i])
 
-    df = pd.DataFrame(columns=('Name', 'Slug', 'ID', 'Fullname', 'Subscribers', 'Members'))
-    pd.options.display.float_format = '{:,.0f}'.format
-    for i in range(len(goodLists)):
-        if mostCommons[i][4] >= minSubscriber and mostCommons[i][5] < maxMember:
-            df.loc[i] = mostCommons[goodLists[i]]
-
-    print(df)
-
-    print()
     print("Number of common lists after elimination: " + str(len(similarUsers2)))
     print("Number of members in lists: " + str(totalMember))
 
@@ -317,15 +246,6 @@ def get_last_similars(similars2):
             lastSimilars.append(s)
 
     print("Number of similar users: " + str(len(lastSimilars)))
-    print()
-
-    df = pd.DataFrame(columns=(
-    'ID', 'Name', 'Followers', 'Friends', 'Favourites', 'Listed', 'Statuses', 'Verified', 'Protected', 'Created_at'))
-    pd.options.display.float_format = '{:,.0f}'.format
-    for i in range(20):
-        df.loc[i] = lastSimilars[i]
-
-    print(df)
 
     write_json_to_file(lastSimilars, os.path.join(data_folder, '11_last_similars.json'))
 
@@ -408,15 +328,15 @@ if __name__ == '__main__':
     minFollower = 5000
     minTweets = 500
 
-    # user_subs = get_base_users_list(twitter_client)
+    # user_subs = get_base_users_list()
     user_subs = load_json_from_file(os.path.join(data_folder, '1_user_subs.json'))
 
     user_lists = get_specifications_of_userlists(userSubs=user_subs)
     common_lists = find_common_lists(userLists=user_lists)
     most_commons = eliminate_common_lists(commonLists=common_lists)
 
-    similar_users = get_members_of_common_lists(mostCommons=most_commons)
-    # similar_users = load_json_from_file(os.path.join(data_folder, '5_similar_users.json'))
+    # similar_users = get_members_of_common_lists(mostCommons=most_commons)
+    similar_users = load_json_from_file(os.path.join(data_folder, '5_similar_users.json'))
 
     similars = extract_important_information_of_users(similarUsers=similar_users)
     chosens = choose_not_humans(similars=similars)
