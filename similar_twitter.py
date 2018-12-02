@@ -120,52 +120,7 @@ def get_members_of_common_lists(mostCommons, similarUsers = {}):
     return similarUsers
 
 
-def extract_important_information_of_users(similarUsers):
-    # 0. id_str				: ID of the user
-    # 1. screen_name		: Screen name of the user (@screen_name)
-    # 2. followers_count	: # Followers
-    # 3. friends_count		: # Following
-    # 4. favourites_count	: # Likes
-    # 5. listed_count		: Total number of list subscription and membership (?)
-    # 6. statuses_count		: # Tweets
-    # 7. verified			: True or False
-    # 8. protected			: True or False / if true can't crawl the account
-    # 9. created_at			: Creation time of the account / (2009-10-30 12:11:39)
-
-    similars = []
-    uNames = []
-    for li, sus in similarUsers.items():
-        for su in sus:
-            if su['screen_name'] not in uNames:
-                uNames.append(su['screen_name'])
-                similars.append((su['id_str'], su['screen_name'], su['followers_count'], su['friends_count'],
-                                 su['favourites_count'], su['listed_count'], su['statuses_count'], su['verified'],
-                                 su['protected'], su['created_at']))
-
-    print("Number of unique users: " + str(len(similars)))
-
-    write_json_to_file(similars, os.path.join(data_folder, '6_similars.json'))
-
-    return similars
-
-
-def choose_not_humans(similars):
-    sortedSimilars = sorted(similars, key=lambda x: x[2], reverse=True)
-
-    chosens = []
-
-    for s in sortedSimilars:
-        if s[2] < minFollower:
-            break
-        if s[6] > minTweets and s[2] > s[3]:
-            chosens.append(s)
-
-    write_json_to_file(chosens, os.path.join(data_folder, '7_chosens.json'))
-
-    return chosens
-
-
-def eliminate_bad_users(similarUsers):
+def eliminate_bad_users(similarUsers, mostCommons):
     goodLists = []
     badUsers = ['cnnbrk', 'nytimes', 'CNN', 'BBCBreaking', 'TheEconomist', 'BBCWorld', 'Reuters', 'FoxNews', 'TIME',
                 'WSJ', 'Forbes', 'ABC', 'HuffPost', 'washingtonpost']
@@ -182,12 +137,6 @@ def eliminate_bad_users(similarUsers):
 
     print("Number of remaining lists after elimination: " + str(len(goodLists)))
 
-    write_json_to_file(goodLists, os.path.join(data_folder, '8_good_lists.json'))
-
-    return goodLists
-
-
-def eliminate_lists_with_company_acounts(goodLists, similarUsers, mostCommons):
     similarUsers2 = []
 
     totalMember = 0
@@ -200,7 +149,7 @@ def eliminate_lists_with_company_acounts(goodLists, similarUsers, mostCommons):
     print("Number of common lists after elimination: " + str(len(similarUsers2)))
     print("Number of members in lists: " + str(totalMember))
 
-    write_json_to_file(similarUsers2, os.path.join(data_folder, '9_similar_users_2.json'))
+    write_json_to_file(similarUsers2, os.path.join(data_folder, '6_similar_users_2.json'))
 
     return similarUsers2
 
@@ -217,27 +166,27 @@ def get_remaining_similars(similarUsers2):
     # 8. protected			: True or False / if true can't crawl the account
     # 9. created_at			: Creation time of the account / (2009-10-30 12:11:39)
 
-    similars2 = []
+    similars = []
     uNames2 = []
     for sus in similarUsers2:
         for su in sus:
             if su['screen_name'] not in uNames2:
                 uNames2.append(su['screen_name'])
-                similars2.append((su['id_str'], su['screen_name'], su['followers_count'], su['friends_count'],
+                similars.append((su['id_str'], su['screen_name'], su['followers_count'], su['friends_count'],
                                   su['favourites_count'], su['listed_count'], su['statuses_count'], su['verified'],
                                   su['protected'], su['created_at']))
 
-    print("Number of unique users: " + str(len(similars2)))
+    print("Number of unique users: " + str(len(similars)))
 
-    write_json_to_file(similars2, os.path.join(data_folder, '10_similars_2.json'))
+    write_json_to_file(similars, os.path.join(data_folder, '7_similars_2.json'))
 
-    return similars2
+    return similars
 
 
-def get_last_similars(similars2):
+def eliminate_remaining_similars(similars):
     lastSimilars = []
 
-    sortedSimilars2 = sorted(similars2, key=lambda x: x[2], reverse=True)
+    sortedSimilars2 = sorted(similars, key=lambda x: x[2], reverse=True)
 
     for s in sortedSimilars2:
         if s[2] < minFollower:
@@ -247,7 +196,7 @@ def get_last_similars(similars2):
 
     print("Number of similar users: " + str(len(lastSimilars)))
 
-    write_json_to_file(lastSimilars, os.path.join(data_folder, '11_last_similars.json'))
+    write_json_to_file(lastSimilars, os.path.join(data_folder, '8_last_similars.json'))
 
     return lastSimilars
 
@@ -338,11 +287,8 @@ if __name__ == '__main__':
     # similar_users = get_members_of_common_lists(mostCommons=most_commons)
     similar_users = load_json_from_file(os.path.join(data_folder, '5_similar_users.json'))
 
-    similars = extract_important_information_of_users(similarUsers=similar_users)
-    chosens = choose_not_humans(similars=similars)
-    good_lists = eliminate_bad_users(similarUsers=similar_users)
-    similar_users_2 = eliminate_lists_with_company_acounts(goodLists=good_lists,similarUsers=similar_users, mostCommons=most_commons)
-    similars_2 = get_remaining_similars(similarUsers2=similar_users_2)
-    last_similars = get_last_similars(similars2=similars_2)
+    similar_users_2 = eliminate_bad_users(similarUsers=similar_users, mostCommons=most_commons)
+    similars = get_remaining_similars(similarUsers2=similar_users_2)
+    last_similars = eliminate_remaining_similars(similars=similars)
 
     print()
