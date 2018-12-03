@@ -120,31 +120,28 @@ def get_members_of_common_lists(mostCommons, similarUsers = {}):
     return similarUsers
 
 
-def eliminate_bad_users(similarUsers, mostCommons):
+def eliminate_bad_users(similarUsers):
     goodLists = []
     badUsers = ['cnnbrk', 'nytimes', 'CNN', 'BBCBreaking', 'TheEconomist', 'BBCWorld', 'Reuters', 'FoxNews', 'TIME',
                 'WSJ', 'Forbes', 'ABC', 'HuffPost', 'washingtonpost']
 
-    similarUsersValues = [v for k, v in similarUsers.items()]
-    for i in range(len(similarUsersValues)):
+    for k, similarUser in similarUsers.items():
         bad = False
-        for su in similarUsersValues[i]:
+        for su in similarUser:
             if su['screen_name'] in badUsers:
                 bad = True
                 break
         if not bad:
-            goodLists.append(i)
+            goodLists.append(k)
 
     print("Number of remaining lists after elimination: " + str(len(goodLists)))
 
     similarUsers2 = []
 
     totalMember = 0
-    similarUsersValues = [v for k, v in similarUsers.items()]
-    for i in goodLists:
-        if mostCommons[i][4] >= minSubscriber and mostCommons[i][5] < maxMember:
-            totalMember = totalMember + mostCommons[i][5]
-            similarUsers2.append(similarUsersValues[i])
+    for k in goodLists:
+        totalMember = totalMember + len(similarUsers[k])
+        similarUsers2.append(similarUsers[k])
 
     print("Number of common lists after elimination: " + str(len(similarUsers2)))
     print("Number of members in lists: " + str(totalMember))
@@ -287,7 +284,7 @@ if __name__ == '__main__':
     # similar_users = get_members_of_common_lists(mostCommons=most_commons)
     similar_users = load_json_from_file(os.path.join(data_folder, '5_similar_users.json'))
 
-    similar_users_2 = eliminate_bad_users(similarUsers=similar_users, mostCommons=most_commons)
+    similar_users_2 = eliminate_bad_users(similarUsers=similar_users)
     similars = get_remaining_similars(similarUsers2=similar_users_2)
     last_similars = eliminate_remaining_similars(similars=similars)
 
