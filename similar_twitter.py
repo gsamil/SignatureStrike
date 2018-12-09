@@ -4,7 +4,7 @@ from time import sleep
 from twitter_api_client import TwitterClient
 
 
-def get_base_users_list(user_subs = {}):
+def get_base_users_list(users, user_subs = {}):
     for user in users:
 
         if user in user_subs:
@@ -120,41 +120,28 @@ def get_members_of_common_lists(mostCommons, similarUsers = {}):
     return similarUsers
 
 
-def eliminate_bad_users(similarUsers, mostCommons):
-    goodLists = []
+def eliminate_bad_users(similarUsers):
     badUsers = ['cnnbrk', 'nytimes', 'CNN', 'BBCBreaking', 'TheEconomist', 'BBCWorld', 'Reuters', 'FoxNews', 'TIME',
                 'WSJ', 'Forbes', 'ABC', 'HuffPost', 'washingtonpost']
 
-    similarUsersValues = [v for k, v in similarUsers.items()]
-    for i in range(len(similarUsersValues)):
-        bad = False
-        for su in similarUsersValues[i]:
-            if su['screen_name'] in badUsers:
-                bad = True
-                break
-        if not bad:
-            goodLists.append(i)
+    print("Total number of members in lists before elimination: {}".format(sum([len(v) for k, v in similarUsers.items()])))
 
-    print("Number of remaining lists after elimination: " + str(len(goodLists)))
+    similarUsers2 = {}
+    for k, similarUser in similarUsers.items():
+        similarUser2 = []
+        for su in similarUser:
+            if su['screen_name'] not in badUsers:
+                similarUser2.append(su)
+        similarUsers2[k] = similarUser2
 
-    similarUsers2 = []
-
-    totalMember = 0
-    similarUsersValues = [v for k, v in similarUsers.items()]
-    for i in goodLists:
-        if mostCommons[i][4] >= minSubscriber and mostCommons[i][5] < maxMember:
-            totalMember = totalMember + mostCommons[i][5]
-            similarUsers2.append(similarUsersValues[i])
-
-    print("Number of common lists after elimination: " + str(len(similarUsers2)))
-    print("Number of members in lists: " + str(totalMember))
+    print("Total number of members in lists before elimination: {}".format(sum([len(v) for k, v in similarUsers2.items()])))
 
     write_json_to_file(similarUsers2, os.path.join(data_folder, '6_similar_users_2.json'))
 
     return similarUsers2
 
 
-def get_remaining_similars(similarUsers2):
+def get_specifications_of_remaining_users(similarUsers2):
     # 0. id_str				: ID of the user
     # 1. screen_name		: Screen name of the user (@screen_name)
     # 2. followers_count	: # Followers
@@ -168,7 +155,7 @@ def get_remaining_similars(similarUsers2):
 
     similars = []
     uNames2 = []
-    for sus in similarUsers2:
+    for k, sus in similarUsers2.items():
         for su in sus:
             if su['screen_name'] not in uNames2:
                 uNames2.append(su['screen_name'])
@@ -183,7 +170,7 @@ def get_remaining_similars(similarUsers2):
     return similars
 
 
-def eliminate_remaining_similars(similars):
+def eliminate_remaining_users(similars):
     lastSimilars = []
 
     sortedSimilars2 = sorted(similars, key=lambda x: x[2], reverse=True)
@@ -277,7 +264,7 @@ if __name__ == '__main__':
     minFollower = 5000
     minTweets = 500
 
-    # user_subs = get_base_users_list()
+    # user_subs = get_base_users_list(users)
     user_subs = load_json_from_file(os.path.join(data_folder, '1_user_subs.json'))
 
     user_lists = get_specifications_of_userlists(userSubs=user_subs)
@@ -287,8 +274,8 @@ if __name__ == '__main__':
     # similar_users = get_members_of_common_lists(mostCommons=most_commons)
     similar_users = load_json_from_file(os.path.join(data_folder, '5_similar_users.json'))
 
-    similar_users_2 = eliminate_bad_users(similarUsers=similar_users, mostCommons=most_commons)
-    similars = get_remaining_similars(similarUsers2=similar_users_2)
-    last_similars = eliminate_remaining_similars(similars=similars)
+    similar_users_2 = eliminate_bad_users(similarUsers=similar_users)
+    similars = get_specifications_of_remaining_users(similarUsers2=similar_users_2)
+    last_similars = eliminate_remaining_users(similars=similars)
 
     print()
