@@ -188,40 +188,31 @@ def eliminate_remaining_users(similars):
     return lastSimilars
 
 
-def get_user_timelines(twitter_client, last_similars):
-    userSubsDir = './user_subs'
-    if not os.path.exists(userSubsDir):
-        os.mkdir(userSubsDir)
-
-    client = twitter_client.get_user_client()
-    user_subs = []
-
-    for user in users:
+def get_user_timelines(last_similars, user_timelines = {}):
+    for user in last_similars:
         print(user)
-        sub = []
+        user_id = user[1]
 
-        next_cursor = -1
+        if user_id in user_timelines:
+            user_timeline = user_timelines[user_id]
+        else:
+            user_timeline = {}
 
-        while next_cursor != 0:
-            while True:
-                try:
-                    response = client.api.lists.memberships.get(screen_name=user, count=250, cursor=next_cursor)
-                    response2 = client.api.statuses.user_timeline.get(screen_name="realDonaldTrump", count=20, cursor=-1)
-                    break
-                except Exception as err:
-                    print(err)
-                    sleep(10)
-                    client = twitter_client.get_user_client()
+        while len(user_timeline) < 2:
+            response = twitter_client.statuses_user_timeline_get(user_id, 2)
+            if len(response.data) is 0:
+                break
+            else:
+                for d in response.data:
+                    if d['id_str'] not in user_timeline:
+                        user_timeline[d['id_str']] = d['full_text']
 
-            next_cursor = response.data['next_cursor']
-            sub.extend(response.data['lists'])
+        if len(user_timeline) is not 0:
+            user_timelines[user_id] = user_timeline
 
-        with open('{}/{}.json'.format(userSubsDir, user), 'w') as outfile:
-            json.dump(sub, outfile)
+    write_json_to_file(user_timelines, os.path.join(data_folder, '9_user_timelines.json'))
 
-        user_subs.append(sub)
-
-    return user_subs
+    return user_timelines
 
 
 def load_json_from_file(file_path):
@@ -265,17 +256,21 @@ if __name__ == '__main__':
     minTweets = 500
 
     # user_subs = get_base_users_list(users)
-    user_subs = load_json_from_file(os.path.join(data_folder, '1_user_subs.json'))
+    # user_subs = load_json_from_file(os.path.join(data_folder, '1_user_subs.json'))
 
-    user_lists = get_specifications_of_userlists(userSubs=user_subs)
-    common_lists = find_common_lists(userLists=user_lists)
-    most_commons = eliminate_common_lists(commonLists=common_lists)
+    # user_lists = get_specifications_of_userlists(userSubs=user_subs)
+    # common_lists = find_common_lists(userLists=user_lists)
+    # most_commons = eliminate_common_lists(commonLists=common_lists)
 
     # similar_users = get_members_of_common_lists(mostCommons=most_commons)
-    similar_users = load_json_from_file(os.path.join(data_folder, '5_similar_users.json'))
+    # similar_users = load_json_from_file(os.path.join(data_folder, '5_similar_users.json'))
 
-    similar_users_2 = eliminate_bad_users(similarUsers=similar_users)
-    similars = get_specifications_of_remaining_users(similarUsers2=similar_users_2)
-    last_similars = eliminate_remaining_users(similars=similars)
+    # similar_users_2 = eliminate_bad_users(similarUsers=similar_users)
+    # similars = get_specifications_of_remaining_users(similarUsers2=similar_users_2)
+    # last_similars = eliminate_remaining_users(similars=similars)
+
+    last_similars = load_json_from_file(os.path.join(data_folder, '8_last_similars.json'))
+    user_timelines = load_json_from_file(os.path.join(data_folder, '9_user_timelines.json'))
+    user_timelines = get_user_timelines(last_similars, user_timelines)
 
     print()

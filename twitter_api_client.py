@@ -64,10 +64,10 @@ class TwitterClient(object):
         print("Error {} times, moving to the next user.".format(self._try_count))
         return EmptyApiResponse()
 
-    def statuses_user_timeline_get(self, screen_name, count, cursor):
+    def statuses_user_timeline_get(self, screen_name, count):
         for i in range(self._try_count):
             try:
-                response = self._client.api.statuses.user_timeline.get(screen_name=screen_name, count=count, cursor=-cursor)
+                response = self._client.api.statuses.user_timeline.get(screen_name=screen_name, count=count, tweet_mode='extended')
                 if response is None:
                     return EmptyApiResponse()
                 return response
