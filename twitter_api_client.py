@@ -24,6 +24,7 @@ class TwitterClient(object):
     def __init__(self):
         self._twitter_credentials = None
         self._i = 0
+        self._try_count = 1
         self._client = self._get_new_user_client()
 
     def _get_new_user_client(self):
@@ -34,8 +35,7 @@ class TwitterClient(object):
         return self._client
 
     def lists_memberships_get(self, screen_name, count, cursor):
-        try_count = 1
-        for i in range(try_count):
+        for i in range(self._try_count):
             try:
                 response = self._client.api.lists.memberships.get(screen_name=screen_name, count=count, cursor=cursor)
                 if response is None:
@@ -46,12 +46,11 @@ class TwitterClient(object):
                 sleep(10)
                 self._get_new_user_client()
 
-        print("Error {} times, moving to the next user.".format(try_count))
+        print("Error {} times, moving to the next user.".format(self._try_count))
         return EmptyApiResponse()
 
     def lists_members_get(self, list_id, count, cursor):
-        try_count = 1
-        for i in range(try_count):
+        for i in range(self._try_count):
             try:
                 response = self._client.api.lists.members.get(list_id=list_id, count=count, cursor=cursor)
                 if response is None:
@@ -62,6 +61,21 @@ class TwitterClient(object):
                 sleep(10)
                 self._get_new_user_client()
 
-        print("Error {} times, moving to the next user.".format(try_count))
+        print("Error {} times, moving to the next user.".format(self._try_count))
+        return EmptyApiResponse()
+
+    def statuses_user_timeline_get(self, screen_name, count, cursor):
+        for i in range(self._try_count):
+            try:
+                response = self._client.api.statuses.user_timeline.get(screen_name=screen_name, count=count, cursor=-cursor)
+                if response is None:
+                    return EmptyApiResponse()
+                return response
+            except Exception as err:
+                print(err)
+                sleep(10)
+                self._get_new_user_client()
+
+        print("Error {} times, moving to the next user.".format(self._try_count))
         return EmptyApiResponse()
 
