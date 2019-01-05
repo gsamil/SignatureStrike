@@ -1,6 +1,6 @@
 import json
 import os
-from time import sleep
+import spotlight
 from twitter_api_client import TwitterClient
 
 
@@ -182,29 +182,42 @@ def eliminate_remaining_users(similars, last_similars_path):
 
 
 def get_user_timelines(last_similars, user_timelines_path, user_timelines = {}, no_tweets = 2):
-    for user in last_similars:
-        print(user)
-        user_id = user[1]
+    try:
+        for user in last_similars:
+            print(user)
+            user_id = user[1]
 
-        if user_id in user_timelines:
-            user_timeline = user_timelines[user_id]
-        else:
-            user_timeline = {}
-
-        while len(user_timeline) < no_tweets:
-            response = twitter_client.statuses_user_timeline_get(user_id, 2)
-            if len(response.data) is 0:
-                break
+            if user_id in user_timelines:
+                user_timeline = user_timelines[user_id]
             else:
-                for d in response.data:
-                    if d['id_str'] not in user_timeline:
-                        user_timeline[d['id_str']] = d['full_text']
+                user_timeline = {}
 
-        if len(user_timeline) is not 0:
-            user_timelines[user_id] = user_timeline
+            while len(user_timeline) < no_tweets:
+                response = twitter_client.statuses_user_timeline_get(user_id, 2)
+                if len(response.data) is 0:
+                    raise Exception("No Response")
+                else:
+                    for d in response.data:
+                        if d['id_str'] not in user_timeline:
+                            user_timeline[d['id_str']] = d#['full_text']
 
+            if len(user_timeline) is not 0:
+                user_timelines[user_id] = user_timeline
+    except Exception as e:
+        print(e)
     write_json_to_file(user_timelines, user_timelines_path)
     return user_timelines
+
+
+def get_annotations(annotations_path):
+    annotations = {}
+    for user, timelines in user_timelines.items():
+        annotations[user] = {}
+        for id, timeline in timelines.items():
+            full_text = timeline['full_text']
+            annotations[user][id] = spotlight.annotate('http://model.dbpedia-spotlight.org/en/annotate', full_text)
+    write_json_to_file(annotations, annotations_path)
+    return annotations
 
 
 def load_json_from_file(file_path):
@@ -239,7 +252,7 @@ if __name__ == '__main__':
     users = ['Tom_Slater_', 'IanDunt', 'georgeeaton', 'DavidLammy', 'ShippersUnbound', 'GuidoFawkes', 'OwenJones84', 'bbclaurak']
     users = ['thegrugq', 'SwiftOnSecurity', 'pwnallthethings', 'josephfcox', 'mikko']
 
-    data_folder = "./politics"
+    data_folder = "./cyber_security"
     create_dir_if_not_exist(data_folder)
 
     # List preferences
@@ -259,32 +272,35 @@ if __name__ == '__main__':
     similars_path = os.path.join(data_folder, '7_similars_2.json')
     last_similars_path = os.path.join(data_folder, '8_last_similars.json')
     user_timelines_path = os.path.join(data_folder, '9_user_timelines.json')
+    annotations_path = os.path.join(data_folder, '10_annotations.json')
 
     # user_subs = get_base_users_list(users, user_subs_path)
+    #
     # user_subs = load_json_from_file(user_subs_path)
-    #
     # user_lists = get_specifications_of_userlists(user_subs, user_lists_path)
+    #
     # user_lists = load_json_from_file(user_lists_path)
-    #
     # common_lists = find_common_lists(user_lists, common_lists_path)
+    #
     # common_lists = load_json_from_file(common_lists_path)
-    #
     # most_commons = eliminate_common_lists(common_lists, most_commons_path)
+    #
     # most_commons = load_json_from_file(most_commons_path)
-    #
     # similar_users = get_members_of_common_lists(most_commons, similar_users_path)
+    #
     # similar_users = load_json_from_file(similar_users_path)
-    #
     # similar_users_2 = eliminate_bad_users(similar_users, similar_users_2_path)
+    #
     # similar_users_2 = load_json_from_file(similar_users_2_path)
-    #
     # similars = get_specifications_of_remaining_users(similar_users_2, similars_path)
-    # similars = load_json_from_file(similars_path)
     #
+    # similars = load_json_from_file(similars_path)
     # last_similars = eliminate_remaining_users(similars, last_similars_path)
-    last_similars = load_json_from_file(last_similars_path)
 
-    user_timelines = get_user_timelines(last_similars, user_timelines_path, load_json_from_file(user_timelines_path), no_tweets=2)
-    user_timelines = load_json_from_file(user_timelines_path)
+    last_similars = load_json_from_file(last_similars_path)
+    user_timelines = get_user_timelines(last_similars, user_timelines_path, load_json_from_file(user_timelines_path), no_tweets=10)
+
+    # user_timelines = load_json_from_file(user_timelines_path)
+    # annotations = get_annotations(annotations_path)
 
     print()
