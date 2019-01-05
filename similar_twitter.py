@@ -209,16 +209,45 @@ def get_user_timelines(last_similars, user_timelines_path, user_timelines = {}, 
     return user_timelines
 
 
-def get_annotations(annotations_path):
-    annotations = {}
-    for user, timelines in user_timelines.items():
-        annotations[user] = {}
-        for id, timeline in timelines.items():
-            full_text = timeline['full_text']
-            annotations[user][id] = spotlight.annotate('http://model.dbpedia-spotlight.org/en/annotate', full_text)
+def get_dbpedia_annotations(user_timelines, annotations_path, annotations = {}):
+    try:
+        for user, timelines in user_timelines.items():
+            print(user)
+            if user not in annotations:
+                annotations[user] = {}
+            for id, timeline in timelines.items():
+                full_text = timeline['full_text']
+                if id not in annotations[user]:
+                    try:
+                        annotations[user][id] = spotlight.annotate('http://model.dbpedia-spotlight.org/en/annotate', full_text)
+                    except Exception as e:
+                        print(e)
+    except Exception as e:
+        print(e)
     write_json_to_file(annotations, annotations_path)
     return annotations
 
+
+def get_term_list_from_dbpedia_annotations(annotations, term_list_path):
+    term_list = {}
+    for user, timelines in annotations.items():
+        print(user)
+        term_list[user] = {}
+        for id, entity_list in timelines.items():
+            entity_list_clean = [remove_unwanted_elements_from_entity(entity["URI"]) for entity in entity_list]
+            term = " ".join(filter(None, entity_list_clean))
+            term_list[user][id] = term
+    write_json_to_file(term_list, term_list_path)
+    return term_list
+
+
+def remove_unwanted_elements_from_entity(entity):
+    entity = entity.replace("http://dbpedia.org/resource/", "")
+    unwanted_list = ["HTTPS", "Twitter"]
+    if entity not in unwanted_list:
+        return entity
+    else:
+        return ""
 
 def load_json_from_file(file_path):
     if os.path.exists(file_path):
@@ -238,6 +267,12 @@ def write_all_lines(file_path, lines, file_format="utf-8"):
     with open(file_path, 'w', encoding=file_format) as sw:
         for line in lines:
             sw.write("{}\n".format(line))
+
+
+def read_all_lines(file_path, file_format="utf-8"):
+    with open(file_path, 'r', encoding=file_format) as sw:
+        lines = sw.readlines()
+    return lines
 
 
 def create_dir_if_not_exist(path):
@@ -272,7 +307,8 @@ if __name__ == '__main__':
     similars_path = os.path.join(data_folder, '7_similars_2.json')
     last_similars_path = os.path.join(data_folder, '8_last_similars.json')
     user_timelines_path = os.path.join(data_folder, '9_user_timelines.json')
-    annotations_path = os.path.join(data_folder, '10_annotations.json')
+    annotations_path = os.path.join(data_folder, '10_annotations_dbpedia.json')
+    term_list_path = os.path.join(data_folder, '11_term_list.json')
 
     # user_subs = get_base_users_list(users, user_subs_path)
     #
@@ -297,11 +333,14 @@ if __name__ == '__main__':
     # similars = load_json_from_file(similars_path)
     # last_similars = eliminate_remaining_users(similars, last_similars_path)
 
-    last_similars = load_json_from_file(last_similars_path)
-    user_timelines = get_user_timelines(last_similars, user_timelines_path,
-                                        load_json_from_file(user_timelines_path), no_tweets=5)
+    # last_similars = load_json_from_file(last_similars_path)
+    # user_timelines = get_user_timelines(last_similars, user_timelines_path,
+    #                                     load_json_from_file(user_timelines_path), no_tweets=5)
 
-    # user_timelines = load_json_from_file(user_timelines_path)
-    # annotations = get_annotations(annotations_path)
+    user_timelines = load_json_from_file(user_timelines_path)
+    annotations = get_dbpedia_annotations(user_timelines, annotations_path, load_json_from_file(annotations_path))
+
+    annotations = load_json_from_file(annotations_path)
+    term_list = get_term_list_from_dbpedia_annotations(annotations, term_list_path)
 
     print()

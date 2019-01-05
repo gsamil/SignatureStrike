@@ -7,7 +7,7 @@ import random
 from gensim import corpora
 import pickle
 import gensim
-from similar_twitter import load_json_from_file,create_dir_if_not_exist
+from similar_twitter import load_json_from_file,create_dir_if_not_exist, write_all_lines, read_all_lines
 import os
 
 
@@ -46,6 +46,46 @@ def prepare_text_for_lda(text):
     return tokens
 
 
+def get_text_data_from_timelines(user_timelines_path, text_data_path):
+    text_data = []
+    user_timelines = load_json_from_file(user_timelines_path)
+
+    for user, timelines in user_timelines.items():
+        for id, timeline in timelines.items():
+            full_text = timeline['full_text']
+            tokens = prepare_text_for_lda(full_text)
+            text_data.append(tokens)
+
+    write_all_lines(text_data_path, [" ".join(l) for l in text_data])
+    return text_data
+
+
+def get_text_data_from_term_list(term_list_path, text_data_path):
+    text_data = []
+    term_list = load_json_from_file(term_list_path)
+
+    for user, timelines in term_list.items():
+        for id, timeline in timelines.items():
+            full_text = timeline
+            tokens = prepare_text_for_lda(full_text)
+            text_data.append(tokens)
+
+    write_all_lines(text_data_path, [" ".join(l) for l in text_data])
+    return text_data
+
+
+def train_lda_model_from_text_data(text_data, dictionary_path, corpus_path, model_path):
+    dictionary = corpora.Dictionary(text_data)
+    corpus = [dictionary.doc2bow(text) for text in text_data]
+
+    pickle.dump(corpus, open(corpus_path, 'wb'))
+    dictionary.save(dictionary_path)
+
+    NUM_TOPICS = 5
+    lda_model = gensim.models.ldamodel.LdaModel(corpus, num_topics=NUM_TOPICS, id2word=dictionary, passes=15)
+    lda_model.save(model_path)
+
+
 def load_model(dictionary_path, corpus_path, model_path):
     dictionary = gensim.corpora.Dictionary.load(dictionary_path)
     corpus = pickle.load(open(corpus_path, 'rb'))
@@ -59,31 +99,6 @@ def get_topics_using_saved_model(new_doc, dictionary, lda_model):
     return lda_model.get_document_topics(new_doc_bow)
 
 
-def train_lda_model_from_text_data(text_data, dictionary_path, corpus_path, model_path):
-    dictionary = corpora.Dictionary(text_data)
-    corpus = [dictionary.doc2bow(text) for text in text_data]
-
-    pickle.dump(corpus, open(corpus_path, 'wb'))
-    dictionary.save(dictionary_path)
-
-    NUM_TOPICS = 5
-    lda_model = gensim.models.ldamodel.LdaModel(corpus, num_topics=NUM_TOPICS, id2word=dictionary, passes=15)
-    lda_model.save(model_path)
-    return topics
-
-
-def get_text_data_from_timelines(user_timelines_path):
-    text_data = []
-    user_timelines = load_json_from_file(user_timelines_path)
-
-    for user, timelines in user_timelines.items():
-        for id, timeline in timelines.items():
-            full_text = timeline['full_text']
-            tokens = prepare_text_for_lda(full_text)
-            text_data.append(tokens)
-
-    return text_data
-
 if __name__ == '__main__':
     # spacy.load('en')
     # nltk.download('wordnet')
@@ -92,16 +107,21 @@ if __name__ == '__main__':
     en_stop = set(nltk.corpus.stopwords.words('english'))
 
     data_folder = "cyber_security"
-    out_folder = os.path.join(data_folder, "lda_model_00")
+    out_folder = os.path.join(data_folder, "lda_model_01")
     create_dir_if_not_exist(out_folder)
 
     dictionary_path = os.path.join(out_folder, "dictionary.gensim")
     corpus_path = os.path.join(out_folder, "corpus.pkl")
     model_path = os.path.join(out_folder, "model.gensim")
     user_timelines_path = os.path.join(data_folder, '9_user_timelines.json')
+    term_list_path = os.path.join(data_folder, '11_term_list.json')
 
-    # text_data = get_text_data_from_timelines(user_timelines_path)
-    # topics = train_lda_model_from_text_data(text_data, dictionary_path, corpus_path, model_path)
+    text_data_path = os.path.join(out_folder, "text_data.txt")
+    # text_data = get_text_data_from_timelines(user_timelines_path, text_data_path)
+    text_data = get_text_data_from_term_list(term_list_path, text_data_path)
+
+    text_data = [l.split(" ") for l in read_all_lines(text_data_path)]
+    train_lda_model_from_text_data(text_data, dictionary_path, corpus_path, model_path)
 
     dictionary, corpus, lda_model = load_model(dictionary_path, corpus_path, model_path)
     topics = lda_model.print_topics(num_words=4)
