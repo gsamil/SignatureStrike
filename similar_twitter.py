@@ -193,7 +193,7 @@ def get_user_timelines(last_similars, user_timelines_path, user_timelines = {}, 
                 user_timeline = {}
 
             while len(user_timeline) < no_tweets:
-                response = twitter_client.statuses_user_timeline_get(user_id, 2)
+                response = twitter_client.statuses_user_timeline_get(user_id, no_tweets)
                 if len(response.data) is 0:
                     raise Exception("No Response")
                 else:
@@ -298,7 +298,8 @@ if __name__ == '__main__':
     # last_similars = eliminate_remaining_users(similars, last_similars_path)
 
     last_similars = load_json_from_file(last_similars_path)
-    user_timelines = get_user_timelines(last_similars, user_timelines_path, load_json_from_file(user_timelines_path), no_tweets=10)
+    user_timelines = get_user_timelines(last_similars, user_timelines_path,
+                                        load_json_from_file(user_timelines_path), no_tweets=5)
 
     # user_timelines = load_json_from_file(user_timelines_path)
     # annotations = get_annotations(annotations_path)

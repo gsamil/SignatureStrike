@@ -24,7 +24,7 @@ class TwitterClient(object):
     def __init__(self):
         self._twitter_credentials = None
         self._i = 0
-        self._try_count = 3
+        self._try_count = 1
         self._client = self._get_new_user_client()
         self.sleep_time = 10
 

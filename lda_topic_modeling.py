@@ -69,9 +69,6 @@ def train_lda_model_from_text_data(text_data, dictionary_path, corpus_path, mode
     NUM_TOPICS = 5
     lda_model = gensim.models.ldamodel.LdaModel(corpus, num_topics=NUM_TOPICS, id2word=dictionary, passes=15)
     lda_model.save(model_path)
-    topics = lda_model.print_topics(num_words=4)
-    for topic in topics:
-        print(topic)
     return topics
 
 
@@ -81,7 +78,7 @@ def get_text_data_from_timelines(user_timelines_path):
 
     for user, timelines in user_timelines.items():
         for id, timeline in timelines.items():
-            full_text = timeline  # ['full_text']
+            full_text = timeline['full_text']
             tokens = prepare_text_for_lda(full_text)
             text_data.append(tokens)
 
@@ -116,6 +113,6 @@ if __name__ == '__main__':
     #     print(topic)
 
     # """ visualize topic model """
-    import pyLDAvis.gensim
-    lda_display = pyLDAvis.gensim.prepare(lda_model, corpus, dictionary, sort_topics=True)
-    pyLDAvis.show(lda_display)
+    # import pyLDAvis.gensim
+    # lda_display = pyLDAvis.gensim.prepare(lda_model, corpus, dictionary, sort_topics=True)
+    # pyLDAvis.show(lda_display)
