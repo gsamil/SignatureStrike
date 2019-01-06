@@ -106,21 +106,18 @@ if __name__ == '__main__':
     parser = English()
     en_stop = set(nltk.corpus.stopwords.words('english'))
 
-    data_folder = "cyber_security"
-    out_folder = os.path.join(data_folder, "lda_model_01")
-    create_dir_if_not_exist(out_folder)
+    data_folder = os.path.join("cyber_security", "lda_model_03")
+    create_dir_if_not_exist(data_folder)
 
-    dictionary_path = os.path.join(out_folder, "dictionary.gensim")
-    corpus_path = os.path.join(out_folder, "corpus.pkl")
-    model_path = os.path.join(out_folder, "model.gensim")
-    user_timelines_path = os.path.join(data_folder, '9_user_timelines.json')
+    dictionary_path = os.path.join(data_folder, "dictionary.gensim")
+    corpus_path = os.path.join(data_folder, "corpus.pkl")
+    model_path = os.path.join(data_folder, "model.gensim")
     term_list_path = os.path.join(data_folder, '11_term_list.json')
 
-    text_data_path = os.path.join(out_folder, "text_data.txt")
-    # text_data = get_text_data_from_timelines(user_timelines_path, text_data_path)
+    text_data_path = os.path.join(data_folder, "text_data.txt")
     text_data = get_text_data_from_term_list(term_list_path, text_data_path)
 
-    text_data = [l.split(" ") for l in read_all_lines(text_data_path)]
+    # text_data = [l.split(" ") for l in read_all_lines(text_data_path)]
     train_lda_model_from_text_data(text_data, dictionary_path, corpus_path, model_path)
 
     dictionary, corpus, lda_model = load_model(dictionary_path, corpus_path, model_path)

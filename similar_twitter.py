@@ -191,9 +191,38 @@ def get_user_timelines(last_similars, user_timelines_path, user_timelines = {}, 
                 user_timeline = user_timelines[user_id]
             else:
                 user_timeline = {}
-
-            while len(user_timeline) < no_tweets:
+            i = 0
+            while len(user_timeline) < no_tweets and i < 1:
                 response = twitter_client.statuses_user_timeline_get(user_id, no_tweets)
+                i += 1
+                if len(response.data) is 0:
+                    raise Exception("No Response")
+                else:
+                    for d in response.data:
+                        if d['id_str'] not in user_timeline:
+                            user_timeline[d['id_str']] = d#['full_text']
+
+            if len(user_timeline) is not 0:
+                user_timelines[user_id] = user_timeline
+    except Exception as e:
+        print(e)
+    write_json_to_file(user_timelines, user_timelines_path)
+    return user_timelines
+
+
+def get_user_timelines_from_user_list(user_list, user_timelines_path, user_timelines = {}, no_tweets = 2):
+    try:
+        for user_id in user_list:
+            print(user_id)
+
+            if user_id in user_timelines:
+                user_timeline = user_timelines[user_id]
+            else:
+                user_timeline = {}
+            i = 0
+            while len(user_timeline) < no_tweets and i < 1:
+                response = twitter_client.statuses_user_timeline_get(user_id, no_tweets)
+                i += 1
                 if len(response.data) is 0:
                     raise Exception("No Response")
                 else:
@@ -284,7 +313,7 @@ if __name__ == '__main__':
 
     twitter_client = TwitterClient()
 
-    users = ['Tom_Slater_', 'IanDunt', 'georgeeaton', 'DavidLammy', 'ShippersUnbound', 'GuidoFawkes', 'OwenJones84', 'bbclaurak']
+    # users = ['Tom_Slater_', 'IanDunt', 'georgeeaton', 'DavidLammy', 'ShippersUnbound', 'GuidoFawkes', 'OwenJones84', 'bbclaurak']
     users = ['thegrugq', 'SwiftOnSecurity', 'pwnallthethings', 'josephfcox', 'mikko']
 
     data_folder = "./cyber_security"
@@ -334,8 +363,11 @@ if __name__ == '__main__':
     # last_similars = eliminate_remaining_users(similars, last_similars_path)
 
     # last_similars = load_json_from_file(last_similars_path)
-    # user_timelines = get_user_timelines(last_similars, user_timelines_path,
-    #                                     load_json_from_file(user_timelines_path), no_tweets=5)
+    # user_timelines = get_user_timelines_from_user_list(last_similars, user_timelines_path,
+    #                                                    load_json_from_file(user_timelines_path), no_tweets=10)
+    #
+    # user_timelines = get_user_timelines_from_user_list(users, user_timelines_path,
+    #                                                    load_json_from_file(user_timelines_path), no_tweets=1000)
 
     user_timelines = load_json_from_file(user_timelines_path)
     annotations = get_dbpedia_annotations(user_timelines, annotations_path, load_json_from_file(annotations_path))
