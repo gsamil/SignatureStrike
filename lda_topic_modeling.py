@@ -9,6 +9,7 @@ import pickle
 import gensim
 from similar_twitter import load_json_from_file,create_dir_if_not_exist, write_all_lines, read_all_lines
 import os
+from gensim import corpora, models
 
 
 def tokenize(text):
@@ -46,6 +47,18 @@ def prepare_text_for_lda(text):
     return tokens
 
 
+def prepare_text_for_lda_term(text):
+    # tokens = tokenize(text)
+    if "\n" in text:
+        print()
+    tokens = text.split(" ")
+    tokens = [token for token in tokens if "RT" not in token]
+    tokens = [token for token in tokens if len(token) > 2]
+    tokens = [token for token in tokens if token not in en_stop]
+    # tokens = [get_lemma(token) for token in tokens]
+    return tokens
+
+
 def get_text_data_from_timelines(user_timelines_path, text_data_path):
     text_data = []
     user_timelines = load_json_from_file(user_timelines_path)
@@ -67,7 +80,7 @@ def get_text_data_from_term_list(term_list_path, text_data_path):
     for user, timelines in term_list.items():
         for id, timeline in timelines.items():
             full_text = timeline
-            tokens = prepare_text_for_lda(full_text)
+            tokens = prepare_text_for_lda_term(full_text)
             text_data.append(tokens)
 
     write_all_lines(text_data_path, [" ".join(l) for l in text_data])
@@ -81,9 +94,22 @@ def train_lda_model_from_text_data(text_data, dictionary_path, corpus_path, mode
     pickle.dump(corpus, open(corpus_path, 'wb'))
     dictionary.save(dictionary_path)
 
-    NUM_TOPICS = 5
-    lda_model = gensim.models.ldamodel.LdaModel(corpus, num_topics=NUM_TOPICS, id2word=dictionary, passes=15)
+    lda_model = gensim.models.ldamodel.LdaModel(corpus, num_topics=10, id2word=dictionary, passes=15)
     lda_model.save(model_path)
+
+
+def train_lda_tfidf_model_from_text_data(text_data, dictionary_path, corpus_path, model_path):
+    dictionary = corpora.Dictionary(text_data)
+    corpus = [dictionary.doc2bow(text) for text in text_data]
+
+    tfidf = models.TfidfModel(corpus)
+    corpus_tfidf = tfidf[corpus]
+
+    pickle.dump(corpus, open(corpus_path, 'wb'))
+    dictionary.save(dictionary_path)
+
+    lda_model_tfidf = gensim.models.LdaMulticore(corpus_tfidf, num_topics=5, id2word=dictionary, passes=15, workers=4)
+    lda_model_tfidf.save(model_path)
 
 
 def load_model(dictionary_path, corpus_path, model_path):
@@ -106,18 +132,20 @@ if __name__ == '__main__':
     parser = English()
     en_stop = set(nltk.corpus.stopwords.words('english'))
 
-    data_folder = os.path.join("cyber_security", "lda_model_03")
+    data_folder = os.path.join("cyber_security", "lda_model_01")
     create_dir_if_not_exist(data_folder)
 
     dictionary_path = os.path.join(data_folder, "dictionary.gensim")
     corpus_path = os.path.join(data_folder, "corpus.pkl")
     model_path = os.path.join(data_folder, "model.gensim")
     term_list_path = os.path.join(data_folder, '11_term_list.json')
+    user_timelines_path = os.path.join(data_folder, '9_user_timelines.json')
 
     text_data_path = os.path.join(data_folder, "text_data.txt")
+    # text_data = get_text_data_from_timelines(user_timelines_path, text_data_path)
     text_data = get_text_data_from_term_list(term_list_path, text_data_path)
 
-    # text_data = [l.split(" ") for l in read_all_lines(text_data_path)]
+    text_data = [l.split(" ") for l in read_all_lines(text_data_path)]
     train_lda_model_from_text_data(text_data, dictionary_path, corpus_path, model_path)
 
     dictionary, corpus, lda_model = load_model(dictionary_path, corpus_path, model_path)
@@ -125,11 +153,7 @@ if __name__ == '__main__':
     for topic in topics:
         print(topic)
 
-    # topics2 = get_topics_using_saved_model("Electric Scooters Could Reshape Cities", dictionary, lda_model)
-    # for topic in topics2:
-    #     print(topic)
-
-    # """ visualize topic model """
-    # import pyLDAvis.gensim
-    # lda_display = pyLDAvis.gensim.prepare(lda_model, corpus, dictionary, sort_topics=True)
-    # pyLDAvis.show(lda_display)
+    """ visualize topic model """
+    import pyLDAvis.gensim
+    lda_display = pyLDAvis.gensim.prepare(lda_model, corpus, dictionary, sort_topics=True)
+    pyLDAvis.show(lda_display)
